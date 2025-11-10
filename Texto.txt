@@ -1,0 +1,126 @@
+if (dgvCompletoDos.Rows.Count == 0)
+{
+    MessageBox.Show("No hay datos para exportar", "Advertencia", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+    return;
+}
+
+Word.Application wordApp = null;
+Word.Document wordDoc = null;
+
+try
+{
+    btnWord.Enabled = false;
+    Cursor = Cursors.WaitCursor;
+
+    string rutaPlantilla = System.IO.Path.Combine(Application.StartupPath, "Plantilla.docx");
+    if (!System.IO.File.Exists(rutaPlantilla))
+    {
+        MessageBox.Show("No se encontró la plantilla en:\n" + rutaPlantilla, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        return;
+    }
+
+    wordApp = new Word.Application();
+    wordDoc = wordApp.Documents.Add(rutaPlantilla);
+    wordApp.Visible = true;
+
+    // Detectar idioma del Office para usar el estilo correcto
+    string estiloTitulo = "Título 1";
+    string estiloNormal = "Normal";
+
+    try
+    {
+        // Si Office está en inglés
+        if (wordApp.Language == Word.WdLanguageID.wdEnglishUS ||
+            wordApp.Language == Word.WdLanguageID.wdEnglish)
+        {
+            estiloTitulo = "Heading 1";
+            estiloNormal = "Normal"; // En inglés se llama igual
+        }
+    }
+    catch { /* Evitar error si no se puede detectar idioma */ }
+
+    // --- Insertar título ---
+    Word.Paragraph titulo = wordDoc.Content.Paragraphs.Add();
+    titulo.Range.Text = "LISTADO DE REVISIÓN DE VEHÍCULO";
+    try { titulo.Range.set_Style(estiloTitulo); }
+    catch { titulo.Range.set_Style(estiloNormal); } // fallback
+    titulo.Range.ParagraphFormat.Alignment = Word.WdParagraphAlignment.wdAlignParagraphCenter;
+    titulo.Range.InsertParagraphAfter();
+
+    // --- Insertar fecha y hora ---
+    Word.Paragraph fechaHora = wordDoc.Content.Paragraphs.Add();
+    fechaHora.Range.Text = $"Fecha: {DateTime.Now:dd/MM/yyyy}     Hora: {DateTime.Now:HH:mm}";
+    try { fechaHora.Range.set_Style(estiloNormal); } catch { }
+    fechaHora.Range.ParagraphFormat.Alignment = Word.WdParagraphAlignment.wdAlignParagraphCenter;
+    fechaHora.Range.InsertParagraphAfter();
+    fechaHora.Range.InsertParagraphAfter();
+
+    // --- Insertar tabla ---
+    int columnasVisibles = 0;
+    foreach (DataGridViewColumn col in dgvCompletoDos.Columns)
+        if (col.Visible) columnasVisibles++;
+
+    Word.Range rangoTabla = wordDoc.Content.Paragraphs.Last.Range;
+    rangoTabla.Collapse(Word.WdCollapseDirection.wdCollapseEnd);
+
+    Word.Table tabla = wordDoc.Tables.Add(rangoTabla, dgvCompletoDos.Rows.Count + 1, columnasVisibles);
+    tabla.Borders.Enable = 1;
+    tabla.AllowAutoFit = true;
+    tabla.Rows[1].HeadingFormat = -1;
+
+    // --- Encabezados ---
+    int colIndex = 1;
+    foreach (DataGridViewColumn col in dgvCompletoDos.Columns)
+    {
+        if (col.Visible)
+        {
+            Word.Cell celda = tabla.Cell(1, colIndex);
+            celda.Range.Text = col.HeaderText;
+            celda.Range.Font.Bold = 1;
+            celda.Range.ParagraphFormat.Alignment = Word.WdParagraphAlignment.wdAlignParagraphCenter;
+            celda.VerticalAlignment = Word.WdCellVerticalAlignment.wdCellAlignVerticalCenter;
+            colIndex++;
+        }
+    }
+
+    // --- Celdas de datos ---
+    for (int i = 0; i < dgvCompletoDos.Rows.Count; i++)
+    {
+        colIndex = 1;
+        foreach (DataGridViewColumn col in dgvCompletoDos.Columns)
+        {
+            if (col.Visible)
+            {
+                string valor = dgvCompletoDos.Rows[i].Cells[col.Index].Value?.ToString() ?? "";
+                Word.Cell celda = tabla.Cell(i + 2, colIndex);
+                celda.Range.Text = valor;
+                celda.VerticalAlignment = Word.WdCellVerticalAlignment.wdCellAlignVerticalCenter;
+                celda.Range.ParagraphFormat.Alignment = Word.WdParagraphAlignment.wdAlignParagraphCenter;
+                colIndex++;
+            }
+        }
+    }
+
+    // --- Comentarios ---
+    Word.Paragraph comentariosTitulo = wordDoc.Content.Paragraphs.Add();
+    comentariosTitulo.Range.Text = "Comentarios:";
+    try { comentariosTitulo.Range.set_Style(estiloNormal); } catch { }
+    comentariosTitulo.Range.InsertParagraphAfter();
+
+    Word.Paragraph comentariosLinea = wordDoc.Content.Paragraphs.Add();
+    comentariosLinea.Range.Text = new string('_', 280);
+    try { comentariosLinea.Range.set_Style(estiloNormal); } catch { }
+    comentariosLinea.Range.InsertParagraphAfter();
+
+    MessageBox.Show("Documento generado correctamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+}
+catch (Exception ex)
+{
+    MessageBox.Show("Error al generar el documento:\n" + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+}
+finally
+{
+    btnWord.Enabled = true;
+    Cursor = Cursors.Default;
+    dgvCompletoDos.DataSource = null;
+}
