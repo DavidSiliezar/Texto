@@ -29,15 +29,18 @@ try
 
     try
     {
-        // Si Office está en inglés
-        if (wordApp.Language == Word.WdLanguageID.wdEnglishUS ||
-            wordApp.Language == Word.WdLanguageID.wdEnglish)
+        int idioma = (int)wordApp.LanguageSettings.LanguageID[MsoAppLanguageID.msoLanguageIDUI];
+        if (idioma == (int)Word.WdLanguageID.wdEnglishUS || idioma == (int)Word.WdLanguageID.wdEnglishAUS)
         {
             estiloTitulo = "Heading 1";
-            estiloNormal = "Normal"; // En inglés se llama igual
+            estiloNormal = "Normal"; // igual en inglés
         }
     }
-    catch { /* Evitar error si no se puede detectar idioma */ }
+    catch
+    {
+        // Si no se puede detectar idioma, usa valores por defecto
+    }
+
 
     // --- Insertar título ---
     Word.Paragraph titulo = wordDoc.Content.Paragraphs.Add();
@@ -124,3 +127,5 @@ finally
     Cursor = Cursors.Default;
     dgvCompletoDos.DataSource = null;
 }
+
+using Microsoft.Office.Core;
